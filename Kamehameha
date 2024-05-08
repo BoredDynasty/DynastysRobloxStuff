@@ -1,0 +1,484 @@
+local kameevent = game.ReplicatedStorage.Kamehameha.Remotes.KamehamehaEvent
+local damageBeam = 5
+local SfxCharge = game.ReplicatedStorage.Kamehameha.Sounds.KameCharge
+local SfxFire = game.ReplicatedStorage.Kamehameha.Sounds.KameFire
+local SfxVoiceT = game.ReplicatedStorage.Kamehameha.Sounds.KameVoiceT
+local SfxVoice = game.ReplicatedStorage.Kamehameha.Sounds.KameVoice
+local KameFire = game.ReplicatedStorage.Kamehameha.Sounds.FIRESound
+
+kameevent.OnServerEvent:Connect(function(Player, charging)
+	local Character = Player.Character
+	local Humanoid = Character:WaitForChild("Humanoid")
+	local HumanoidRP = Character:WaitForChild("HumanoidRootPart")
+	local RightArm = Character:WaitForChild("Right Arm")
+	if charging == true then
+		SfxCharge:Clone() 
+		SfxCharge.Parent = Player.Character.HumanoidRootPart
+		SfxCharge.MaxDistance = 150
+		SfxCharge.TimePosition = 0
+		SfxCharge:Play()	
+		SfxVoiceT:Play()
+		HumanoidRP.Anchored = true
+		
+		local arm =  game.ReplicatedStorage.Kamehameha.Effect.Arm:Clone()
+		arm.Parent = RightArm
+		arm.CFrame = RightArm.CFrame
+		local hweld = Instance.new("ManualWeld")
+		hweld.Part0 = arm
+		hweld.Part1 = RightArm
+		hweld.C0 = hweld.Part0.CFrame:inverse() * hweld.Part1.CFrame
+		hweld.Parent = hweld.Part0
+		if Player.Character.Humanoid.FloorMaterial == Enum.Material.Air then
+	    wait(0.1)
+		local Info = TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, 0, false, 0 )
+		local Goals ={Position = HumanoidRP.Position+Vector3.new(0,20,-7);}
+		local Tween1 = game.TweenService:Create(HumanoidRP,Info,Goals)
+		for i, track in pairs(Humanoid:GetPlayingAnimationTracks()) do
+				track:Stop()
+		end
+		Tween1:Play()
+		else	
+		for i, track in pairs(Humanoid:GetPlayingAnimationTracks()) do
+			track:Stop()
+		end
+		wait(0.4)
+		end
+	end
+end)
+
+kameevent.OnServerEvent:Connect(function(Player, charging, hit)
+
+	local Character = Player.Character
+	local Humanoid = Character:WaitForChild("Humanoid")
+	local HumanoidRP = Character:WaitForChild("HumanoidRootPart")
+	local RightArm = Character:WaitForChild("Right Arm")
+	if charging == false then
+		HumanoidRP.Anchored = true
+		task.spawn(function()
+			for i, eff in pairs(RightArm.Arm.Attachment:GetChildren()) do
+				eff.Enabled = false
+			end
+			wait(3)
+			RightArm.Arm:Destroy()
+		end)
+		for i, track in pairs(Humanoid:GetPlayingAnimationTracks()) do
+			track:Stop()
+		end
+		SfxCharge:Stop()	
+		HumanoidRP.Anchored = true
+
+		wait(0.25)
+		SfxFire:Clone()
+		SfxFire.Parent = Player.Character.HumanoidRootPart
+		SfxFire.MaxDistance = 150
+		SfxFire.TimePosition = 0
+		---SfxFire:Play()	
+		KameFire:Play()
+		SfxVoice:Play()
+		--HumanoidRP.Anchored = false -- not supposed to be here.
+
+		local HitBox = Instance.new("Part",workspace.Visuals)
+		HitBox.CFrame = Character.HumanoidRootPart.CFrame * CFrame.new(0,0,-50/2)
+		HitBox.CanTouch = true
+		HitBox.Size = Vector3.new(7,7,70)
+		HitBox.Anchored = true
+		HitBox.Massless = true
+		HitBox.CanCollide = false
+		HitBox.CanQuery = false
+		HitBox.Transparency = 1
+		game.Debris:AddItem(HitBox,2)
+		local kamemodel = game.ReplicatedStorage.Kamehameha.Effect.KameModel:Clone()
+		kamemodel.Parent = workspace.Visuals
+		kamemodel.HumanoidRootPart.CFrame = HumanoidRP.CFrame
+		task.spawn(function()
+			kamemodel.Stuff.Start.Beam1.Width0 = 0
+			kamemodel.Stuff.Start.Beam1.Width1 = 0
+			kamemodel.Stuff.Start.Beam2.Width0 = 0
+			kamemodel.Stuff.Start.Beam2.Width1 = 0
+			kamemodel.Stuff.Start.Beam3.Width0 = 0
+			kamemodel.Stuff.Start.Beam3.Width1 = 0
+			game.TweenService:Create(kamemodel.Stuff.Start.Beam1, TweenInfo.new(0.4), {Width0 = 9.5, Width1 = 9.5}):Play()
+			game.TweenService:Create(kamemodel.Stuff.Start.Beam2, TweenInfo.new(0.4), {Width0 = 16, Width1 = 16}):Play()
+			game.TweenService:Create(kamemodel.Stuff.Start.Beam3, TweenInfo.new(0.4), {Width0 = 11, Width1 = 11}):Play()
+			local kamefire = game.TweenService:Create(kamemodel.Stuff.End, TweenInfo.new(0.5), {Position = hit})
+			kamefire:Play()
+			wait(3)
+			HumanoidRP.Anchored = false
+			kamemodel.Stuff.End.Touched:Connect(function(hit)
+				if hit:IsA("Part") or hit:IsA("MeshPart") then
+					kamefire:Destroy()
+				end
+			end)
+		end)
+		
+	
+		
+		HitBox.Touched:Connect(function(hit)
+			if hit.Parent:FindFirstChild("Humanoid") and hit.Parent.Name ~= Player.Name and not hit.Parent:FindFirstChild("AlreadyHit") then
+				if not hit.Parent.Humanoid:FindFirstChild(Player.Name) then
+					hit.Parent:FindFirstChild("Humanoid").WalkSpeed = 1 -- stun
+					hit.Parent:FindFirstChild("Humanoid").JumpPower = 0
+					--1
+					local HitEffect = game.ReplicatedStorage.Kamehameha.Effect.HitEffect:Clone()
+
+					HitEffect.Parent = hit.Parent:FindFirstChild("HumanoidRootPart")
+					HitEffect:Emit(5)
+					game.Debris:AddItem(HitEffect,1)	
+
+					local HitAnim = Instance.new("Animation")
+					HitAnim.AnimationId = "rbxassetid://10375990177"
+
+					local HitAnim = hit.Parent.Humanoid:LoadAnimation(HitAnim)
+
+
+
+					hit.Parent.Humanoid:TakeDamage(damageBeam)
+
+					HitAnim:Play()
+					local VeloCity = Instance.new("BodyVelocity",hit.Parent:FindFirstChild("HumanoidRootPart")) -- KnockBack
+					VeloCity.MaxForce = Vector3.new(5000,0,5000)
+					VeloCity.Velocity = hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 10 + hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.UpVector * 15
+					game.Debris:AddItem(VeloCity,0.3)
+					local indicator = require(game.ReplicatedStorage.Kamehameha.Modules.DamageIndicator) -- BurnDamage Indicator
+					local Color = Color3.fromRGB(255, 0, 0)
+					local Size = UDim2.new(1.8, 0, 1.8, 0)
+					local Font = Enum.Font.Arcade
+					indicator(hit.Parent, damageBeam, Color, Size,Font)
+
+					local Check = Instance.new("IntValue", hit.Parent)
+					Check.Name = "AlreadyHit"
+					game.Debris:AddItem(Check ,2)
+
+					wait(0.25)
+					local HitEffect = game.ReplicatedStorage.Kamehameha.Effect.HitEffect:Clone()
+
+					HitEffect.Parent = hit.Parent:FindFirstChild("HumanoidRootPart")
+					HitEffect:Emit(5)
+					game.Debris:AddItem(HitEffect,1)	
+
+					local HitAnim = Instance.new("Animation")
+					HitAnim.AnimationId = "rbxassetid://10375990177"
+
+					local HitAnim = hit.Parent.Humanoid:LoadAnimation(HitAnim)
+
+
+
+					hit.Parent.Humanoid:TakeDamage(damageBeam)
+
+					HitAnim:Play()
+					local VeloCity = Instance.new("BodyVelocity",hit.Parent:FindFirstChild("HumanoidRootPart")) -- KnockBack
+					VeloCity.MaxForce = Vector3.new(5000,0,5000)
+					VeloCity.Velocity = hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 10 + hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.UpVector * 15
+					game.Debris:AddItem(VeloCity,0.3)
+					local indicator = require(game.ReplicatedStorage.Kamehameha.Modules.DamageIndicator) -- BurnDamage Indicator
+					local Color = Color3.fromRGB(255, 0, 0)
+					local Size = UDim2.new(1.8, 0, 1.8, 0)
+					local Font = Enum.Font.Arcade
+					indicator(hit.Parent, damageBeam, Color, Size,Font)
+
+					local Check = Instance.new("IntValue", hit.Parent)
+					Check.Name = "AlreadyHit"
+					game.Debris:AddItem(Check ,2)
+
+					wait(0.25)
+					--2
+					local HitEffect = game.ReplicatedStorage.Kamehameha.Effect.HitEffect:Clone()
+
+					HitEffect.Parent = hit.Parent:FindFirstChild("HumanoidRootPart")
+					HitEffect:Emit(5)
+					game.Debris:AddItem(HitEffect,1)	
+
+					local HitAnim = Instance.new("Animation")
+					HitAnim.AnimationId = "rbxassetid://10375990177"
+
+					local HitAnim = hit.Parent.Humanoid:LoadAnimation(HitAnim)
+
+
+
+					hit.Parent.Humanoid:TakeDamage(damageBeam)
+
+					HitAnim:Play()
+					local VeloCity = Instance.new("BodyVelocity",hit.Parent:FindFirstChild("HumanoidRootPart")) -- KnockBack
+					VeloCity.MaxForce = Vector3.new(5000,0,5000)
+					VeloCity.Velocity = hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 10 + hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.UpVector * 15
+					game.Debris:AddItem(VeloCity,0.3)
+					local indicator = require(game.ReplicatedStorage.Kamehameha.Modules.DamageIndicator) -- BurnDamage Indicator
+					local Color = Color3.fromRGB(255, 0, 0)
+					local Size = UDim2.new(1.8, 0, 1.8, 0)
+					local Font = Enum.Font.Arcade
+					indicator(hit.Parent, damageBeam, Color, Size,Font)
+
+					local Check = Instance.new("IntValue", hit.Parent)
+					Check.Name = "AlreadyHit"
+					game.Debris:AddItem(Check ,2)
+
+					wait(0.25)
+					--3
+					local HitEffect = game.ReplicatedStorage.Kamehameha.Effect.HitEffect:Clone()
+
+					HitEffect.Parent = hit.Parent:FindFirstChild("HumanoidRootPart")
+					HitEffect:Emit(5)
+					game.Debris:AddItem(HitEffect,1)	
+
+					local HitAnim = Instance.new("Animation")
+					HitAnim.AnimationId = "rbxassetid://10375990177"
+
+					local HitAnim = hit.Parent.Humanoid:LoadAnimation(HitAnim)
+
+
+
+					hit.Parent.Humanoid:TakeDamage(damageBeam)
+
+					HitAnim:Play()
+					local VeloCity = Instance.new("BodyVelocity",hit.Parent:FindFirstChild("HumanoidRootPart")) -- KnockBack
+					VeloCity.MaxForce = Vector3.new(5000,0,5000)
+					VeloCity.Velocity = hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 10 + hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.UpVector * 15
+					game.Debris:AddItem(VeloCity,0.3)
+					local indicator = require(game.ReplicatedStorage.Kamehameha.Modules.DamageIndicator) -- BurnDamage Indicator
+					local Color = Color3.fromRGB(255, 0, 0)
+					local Size = UDim2.new(1.8, 0, 1.8, 0)
+					local Font = Enum.Font.Arcade
+					indicator(hit.Parent, damageBeam, Color, Size,Font)
+
+					local Check = Instance.new("IntValue", hit.Parent)
+					Check.Name = "AlreadyHit"
+					game.Debris:AddItem(Check ,2)
+
+					wait(0.25)
+					--4
+					local HitEffect = game.ReplicatedStorage.Kamehameha.Effect.HitEffect:Clone()
+
+					HitEffect.Parent = hit.Parent:FindFirstChild("HumanoidRootPart")
+					HitEffect:Emit(5)
+					game.Debris:AddItem(HitEffect,1)	
+
+					local HitAnim = Instance.new("Animation")
+					HitAnim.AnimationId = "rbxassetid://10375990177"
+
+					local HitAnim = hit.Parent.Humanoid:LoadAnimation(HitAnim)
+
+
+
+					hit.Parent.Humanoid:TakeDamage(damageBeam)
+
+					HitAnim:Play()
+					local VeloCity = Instance.new("BodyVelocity",hit.Parent:FindFirstChild("HumanoidRootPart")) -- KnockBack
+					VeloCity.MaxForce = Vector3.new(5000,0,5000)
+					VeloCity.Velocity = hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 10 + hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.UpVector * 15
+					game.Debris:AddItem(VeloCity,0.3)
+					local indicator = require(game.ReplicatedStorage.Kamehameha.Modules.DamageIndicator) -- BurnDamage Indicator
+					local Color = Color3.fromRGB(255, 0, 0)
+					local Size = UDim2.new(1.8, 0, 1.8, 0)
+					local Font = Enum.Font.Arcade
+					indicator(hit.Parent, damageBeam, Color, Size,Font)
+
+					local Check = Instance.new("IntValue", hit.Parent)
+					Check.Name = "AlreadyHit"
+					game.Debris:AddItem(Check ,2)
+
+					wait(0.25)
+					--5
+					local HitEffect = game.ReplicatedStorage.Kamehameha.Effect.HitEffect:Clone()
+
+					HitEffect.Parent = hit.Parent:FindFirstChild("HumanoidRootPart")
+					HitEffect:Emit(5)
+					game.Debris:AddItem(HitEffect,1)	
+
+					local HitAnim = Instance.new("Animation")
+					HitAnim.AnimationId = "rbxassetid://10375990177"
+
+					local HitAnim = hit.Parent.Humanoid:LoadAnimation(HitAnim)
+
+
+
+					hit.Parent.Humanoid:TakeDamage(damageBeam)
+
+					HitAnim:Play()
+					local VeloCity = Instance.new("BodyVelocity",hit.Parent:FindFirstChild("HumanoidRootPart")) -- KnockBack
+					VeloCity.MaxForce = Vector3.new(5000,0,5000)
+					VeloCity.Velocity = hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 10 + hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.UpVector * 15
+					game.Debris:AddItem(VeloCity,0.3)
+					local indicator = require(game.ReplicatedStorage.Kamehameha.Modules.DamageIndicator) -- BurnDamage Indicator
+					local Color = Color3.fromRGB(255, 0, 0)
+					local Size = UDim2.new(1.8, 0, 1.8, 0)
+					local Font = Enum.Font.Arcade
+					indicator(hit.Parent, damageBeam, Color, Size,Font)
+
+					local Check = Instance.new("IntValue", hit.Parent)
+					Check.Name = "AlreadyHit"
+					game.Debris:AddItem(Check ,2)
+
+					wait(0.25)
+					--6
+					local HitEffect = game.ReplicatedStorage.Kamehameha.Effect.HitEffect:Clone()
+
+					HitEffect.Parent = hit.Parent:FindFirstChild("HumanoidRootPart")
+					HitEffect:Emit(5)
+					game.Debris:AddItem(HitEffect,1)	
+
+					local HitAnim = Instance.new("Animation")
+					HitAnim.AnimationId = "rbxassetid://10375990177"
+
+					local HitAnim = hit.Parent.Humanoid:LoadAnimation(HitAnim)
+
+
+
+					hit.Parent.Humanoid:TakeDamage(damageBeam)
+
+					HitAnim:Play()
+					local VeloCity = Instance.new("BodyVelocity",hit.Parent:FindFirstChild("HumanoidRootPart")) -- KnockBack
+					VeloCity.MaxForce = Vector3.new(5000,0,5000)
+					VeloCity.Velocity = hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 10 + hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.UpVector * 15
+					game.Debris:AddItem(VeloCity,0.3)
+					local indicator = require(game.ReplicatedStorage.Kamehameha.Modules.DamageIndicator) -- BurnDamage Indicator
+					local Color = Color3.fromRGB(255, 0, 0)
+					local Size = UDim2.new(1.8, 0, 1.8, 0)
+					local Font = Enum.Font.Arcade
+					indicator(hit.Parent, damageBeam, Color, Size,Font)
+
+					local Check = Instance.new("IntValue", hit.Parent)
+					Check.Name = "AlreadyHit"
+					game.Debris:AddItem(Check ,2)
+
+					wait(0.25)
+					--7
+					local HitEffect = game.ReplicatedStorage.Kamehameha.Effect.HitEffect:Clone()
+
+					HitEffect.Parent = hit.Parent:FindFirstChild("HumanoidRootPart")
+					HitEffect:Emit(5)
+					game.Debris:AddItem(HitEffect,1)	
+
+					local HitAnim = Instance.new("Animation")
+					HitAnim.AnimationId = "rbxassetid://10375990177"
+
+					local HitAnim = hit.Parent.Humanoid:LoadAnimation(HitAnim)
+
+
+
+					hit.Parent.Humanoid:TakeDamage(damageBeam)
+
+					HitAnim:Play()
+					local VeloCity = Instance.new("BodyVelocity",hit.Parent:FindFirstChild("HumanoidRootPart")) -- KnockBack
+					VeloCity.MaxForce = Vector3.new(5000,0,5000)
+					VeloCity.Velocity = hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 10 + hit.Parent:FindFirstChild("HumanoidRootPart").CFrame.UpVector * 15
+					game.Debris:AddItem(VeloCity,0.3)
+					local indicator = require(game.ReplicatedStorage.Kamehameha.Modules.DamageIndicator) -- BurnDamage Indicator
+					local Color = Color3.fromRGB(255, 0, 0)
+					local Size = UDim2.new(1.8, 0, 1.8, 0)
+					local Font = Enum.Font.Arcade
+					indicator(hit.Parent, damageBeam, Color, Size,Font)
+
+					local Check = Instance.new("IntValue", hit.Parent)
+					Check.Name = "AlreadyHit"
+					game.Debris:AddItem(Check ,2)
+
+					wait(0.25)
+					hit.Parent:FindFirstChild("Humanoid").WalkSpeed = 16 
+					hit.Parent:FindFirstChild("Humanoid").JumpPower = 50				
+				end
+			end
+		end)
+		
+		
+		local pos =  game.ReplicatedStorage.Kamehameha.Effect.Pos:Clone()
+		pos.Parent = workspace.Visuals
+		pos.Position = hit
+		pos.Orientation = Vector3.new(0, 0, 0)
+		pos.CFrame = pos.CFrame * CFrame.new(0,3,0)
+
+	    --Rock
+		task.spawn(function()
+			local Folder = Instance.new("Folder", workspace.Visuals)
+
+			Folder.Name = "Rocks"
+
+			local RayParams = RaycastParams.new()
+
+			local cfr = pos.CFrame * CFrame.new(0, -2.25, 0)
+
+			local angle = 0
+			local posadding = -3
+			local size_adding = 2
+			for i = 1,5 do
+				wait(0.2)
+				posadding = posadding -3
+				size_adding = size_adding + 1
+				for I = 1, 10 do
+
+					local Size = math.random(3, 4)
+					local Rock = game.ReplicatedStorage.Kamehameha.Effect.rock:Clone()
+					Rock.Size = Vector3.new(size_adding, size_adding, size_adding)
+					Rock.CFrame = cfr * CFrame.fromEulerAnglesXYZ(0, math.rad(angle), 0) * CFrame.new(0, 0, posadding)
+					Rock.Parent = Folder
+
+					local ray = workspace:Raycast(Rock.CFrame.p, Rock.CFrame.upVector * -6.2, RayParams) -- origin (cframe), direction (lookVector or upVector) , filter (params)
+
+					if ray then
+						Rock.Color = ray.Instance.Color
+						Rock.Material = ray.Instance.Material
+						Rock.Orientation = Vector3.new(math.random(-180, 180), math.random(-180, 180), math.random(-180, 180))
+
+
+						delay(1, function()
+							game.TweenService:Create(Rock, TweenInfo.new(1), {Transparency = 1, Size = Vector3.new(0.1, 0.1, 0.1)})	
+						end)
+
+					end
+
+
+					delay(2.5, function()
+						game.TweenService:Create(Rock, TweenInfo.new(2), {Transparency = 1}):Play()
+					end)
+
+					game.Debris:AddItem(Folder,5)
+					angle += 24
+				end
+			end
+			
+		end)
+		
+		--Rock end
+		task.spawn(function()
+			for i = 1,35 do
+				wait(0.05)
+			end
+		end)
+		wait(2.7)
+		task.spawn(function()
+			for i, eff in pairs(kamemodel.Stuff.Start.Attachment:GetChildren()) do
+				eff.Enabled = false
+			end
+			for i, eff in pairs(pos.Attachment:GetChildren()) do
+				eff.Enabled = false
+			end
+			game.TweenService:Create(kamemodel.Stuff.Start.Beam1, TweenInfo.new(0.4), {Width0 = 0, Width1 = 0}):Play()
+			game.TweenService:Create(kamemodel.Stuff.Start.Beam2, TweenInfo.new(0.4), {Width0 = 0, Width1 = 0}):Play()
+			game.TweenService:Create(kamemodel.Stuff.Start.Beam3, TweenInfo.new(0.4), {Width0 = 0, Width1 = 0}):Play()
+			game.TweenService:Create(kamemodel.HumanoidRootPart.PointLight, TweenInfo.new(0.4), {Range= 0 ,Brightness = 0}):Play()
+			wait(2)
+	
+			pos:Destroy()
+			kamemodel:Destroy()
+		end)
+		wait(0.5)
+		HumanoidRP.Anchored = false
+	end
+end)
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+-- This is a Roblox LUA Script that enables the player to do a 'Kamehameha' wave referenced from 'Dragon Ball'.
+-- There is also a mouse script attached here. Otherwise this 'Kamehameha' script won't work properly.
+-- 1 - Make a folder in 'ReplicatedStorage' named "Kamehameha"
+-- 2 - Make another folder in the 'Kamehameha' folder named "Sounds"
+-- 3 - There should be an "FIRESound", "KameCharge", "KameFire" "KameVoice", "KameVoiceT".
+-- 4 - For 'KameVoice there should be a dialouge saying - "Kame... Hame..." and for 'KameVoiceT', there should be a "HA!".
+-- 5 - Next make a Remotes folder, then under that folder create 2 RemoteEvents named - "KamehamehaEvent", "Mouse"
+-- 6 - Make a "Modules" folder (I'm going to paste the script under this file)
+-- 7 - Make a "Effect" folder. (I'm going to paste the modules and parts under this file)
+
+-- Dont expect this to work, you may encounter errors. Correct me if I have mistakes!
+-- Cool Fact - The sound Im using is the 'SSJ4 Gogeta' "Urutorabigguban kamehamenami" (Translate from Japanese)
