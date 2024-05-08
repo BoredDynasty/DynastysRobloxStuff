@@ -1,3 +1,3 @@
 # DynastysRobloxUI
 
-The source scripts, UI and files for my Roblox games.
+- The source scripts, UI and files for my Roblox games.
