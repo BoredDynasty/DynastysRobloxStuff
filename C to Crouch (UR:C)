@@ -1,0 +1,30 @@
+Player = game.Players.LocalPlayer
+repeat
+	wait()
+until Player.Character
+Mouser = Player:GetMouse()
+name = Player.Name
+char = game.Workspace[Player.Name]
+
+Animation = script.Anim
+animtrack = char.Humanoid:LoadAnimation(Animation)
+ 
+Mouser.KeyDown:connect(function(key)
+	if key == "c" then
+		
+		animtrack:Play()
+		char.Humanoid.WalkSpeed = 8
+			end
+end)
+
+	Mouser.KeyUp:connect(function(key)
+	 if key == "c"  then
+		script.Disabled = true
+		animtrack:Stop()
+		char.Humanoid.WalkSpeed = 16
+		script.Disabled = false
+		
+	end
+end)
+
+-- This is a Roblox LUA Script basing on pressing 'C' to crouch in game.
