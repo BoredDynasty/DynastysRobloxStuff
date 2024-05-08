@@ -482,3 +482,125 @@ end)
 
 -- Dont expect this to work, you may encounter errors. Correct me if I have mistakes!
 -- Cool Fact - The sound Im using is the 'SSJ4 Gogeta' "Urutorabigguban kamehamenami" (Translate from Japanese)
+
+--------------------------------------------------
+
+-- More scripts!
+----------------------
+-- This is the script that actually allows the place to hit a 'Kamehameha'.
+-- Make sure to place this under "StarterPack"
+-- Make sure you make 2 animations called - "ChargeKame", "FireKame". Very self explanatory.
+
+
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+local UIS = game:GetService("UserInputService")
+local rp = game:GetService("ReplicatedStorage")
+
+local mouseevent = game.ReplicatedStorage.Kamehameha.Remotes.Mouse
+local Kameha = game.ReplicatedStorage.Kamehameha.Remotes.KamehamehaEvent
+
+local Mouse = Player:GetMouse()
+local Debounce = 1
+
+local camera = game.Workspace.CurrentCamera -- CameraShake
+local CameraShaker = require(game.ReplicatedStorage.Kamehameha.Modules.CameraShaker)
+local camshake = CameraShaker.new(Enum.RenderPriority.Camera.Value,function(shakeCFrame)
+	camera.CFrame = camera.CFrame * shakeCFrame
+end)
+
+
+local cooldown = 3
+
+local DFOV = 70
+local TweenService = game:GetService("TweenService")
+local Color = Instance.new("ColorCorrectionEffect")
+Color.Parent = game.Lighting
+local info = TweenInfo.new(0.5)
+local info2 = TweenInfo.new(0.1)
+
+--local SfxCharge = game.ReplicatedStorage.Kamehameha.Sounds.KameCharge
+--local SfxFire = game.ReplicatedStorage.Kamehameha.Sounds.KameFire
+
+UIS.InputBegan:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.F and Debounce == 1 and  Player.Character.Humanoid.FloorMaterial ~= nil then
+		Debounce = 2
+		chargingkame = true
+		
+		--SfxCharge:Clone() 
+		--SfxCharge.Parent = Player.Character.HumanoidRootPart
+		--SfxCharge.MaxDistance = 150
+		--SfxCharge.TimePosition = 0
+		--SfxCharge:Play()	
+		
+		local properties = {FieldOfView = DFOV - 15}
+		local info = TweenInfo.new(1,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,0.5)
+		local tween = TweenService:Create(game.Workspace.CurrentCamera,info,properties):Play()
+		
+		
+		Charge = Player.Character.Humanoid:LoadAnimation(script.ChargeKame)
+		Charge:Play()
+		
+		Kameha:FireServer(chargingkame)
+		wait(0.1)
+
+		
+		camshake:Start()
+		camshake:Shake(CameraShaker.Presets.LongBump)
+	
+		for i = 1,math.huge do
+			if Debounce == 2 then
+				mouseevent:FireServer(Mouse.Hit.p)
+				HumanoidRootPart.Anchored = true
+			else
+				break
+			end
+			wait()
+		end
+		end
+end)
+
+UIS.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.F and chargingkame == true and Debounce == 2 then
+		Debounce = 3
+		chargingkame = false
+		--SfxCharge:Stop()	
+		Charge:Stop()
+
+	 --   SfxFire:Clone()
+		--SfxFire.Parent = Player.Character.HumanoidRootPart
+		--SfxFire.MaxDistance = 150
+		--SfxFire.TimePosition = 0
+		--SfxFire:Play()	
+
+		local Fire = Player.Character.Humanoid:LoadAnimation(script.FireKame)
+		Fire:Play()
+
+		Kameha:FireServer(chargingkame, Mouse.Hit.p)
+		wait(0.1)
+	
+	
+		--camshake:Start()
+		--camshake:Shake(CameraShaker.Presets.Lo)
+		
+		Color.Enabled = true
+		local ColorTween = TweenService:Create(Color, info, {TintColor = Color3.new(0.333333, 0.666667, 1), Contrast = 0})
+		ColorTween:Play()
+
+	
+		--[[task.spawn(function()
+			wait(0.2)
+			game.TweenService:Create(workspace.CurrentCamera, TweenInfo.new(0.95), {FieldOfView = 115}):Play()
+			wait(0.1)
+			Color.Enabled = false
+			wait(2.5)
+			Fire:Stop()
+			game.TweenService:Create(workspace.CurrentCamera, TweenInfo.new(0.7), {FieldOfView = 70}):Play()
+			--]]wait(cooldown)
+			Debounce = 1
+		
+		end
+end)
+
