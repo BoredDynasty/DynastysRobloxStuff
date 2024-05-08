@@ -1,0 +1,275 @@
+local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+ANIMATION_TIME = TweenInfo.new(.2)
+CLIMBING_SPEED = 5
+CLIMBING_ANIMATION_SPEED = 1
+MAXIMUM_ANGLE_FROM_WALL = math.pi / 4
+
+local character = script.Parent
+local root = character.HumanoidRootPart or character:WaitForChild("HumanoidRootPart")
+
+local climbing = false
+local turning = false
+local firstJump = false
+
+local currentClimbTrack
+
+local vectors = {
+	"LookVector",
+	"UpVector",
+	"RightVector"
+}
+
+local raycastParams = RaycastParams.new()
+raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+raycastParams.IgnoreWater = true
+local filterTable = {}
+
+for _, player in ipairs(game:GetService("Players"):GetChildren()) do
+	if player.Character then
+		table.insert(filterTable, player.Character)
+	end
+end
+
+raycastParams.FilterDescendantsInstances = filterTable
+
+local rootAttachment = root:FindFirstChildOfClass("Attachment")
+
+local constraint = Instance.new("PrismaticConstraint")
+constraint.Parent = script
+constraint.Name = "ClimbingConstraint"
+constraint.Attachment1 = rootAttachment
+constraint.LimitsEnabled = false
+
+local bodyVelocity = Instance.new("BodyVelocity")
+bodyVelocity.MaxForce = Vector3.new()
+bodyVelocity.Parent = root
+
+local animate = character:WaitForChild("Animate")
+local climbAnim = animate.climb.ClimbAnim
+
+local climbStates = {
+	["climbForward"] = 0,
+	["climbBackward"] = 0,
+	["climbRight"] = 0,
+	["climbLeft"] = 0
+}
+
+function adjustConstraints()
+
+	local f = climbStates["climbForward"]
+	local b = climbStates["climbBackward"]
+	local r = climbStates["climbRight"]
+	local l = climbStates["climbLeft"]
+	
+	constraint.Attachment0.WorldCFrame = root.CFrame * CFrame.Angles(0, 0, (r - l) * (f - b) * math.pi/4 + (-(r - l)^2 + 1) * math.pi/2)
+	currentClimbTrack:AdjustSpeed((r - l) * (f - b) * CLIMBING_ANIMATION_SPEED + (-(r - l)^2 + 1) * (f - b) * CLIMBING_ANIMATION_SPEED + (-(f - b)^2 + 1) * (r - l) * CLIMBING_ANIMATION_SPEED)
+	rootAttachment.WorldCFrame = constraint.Attachment0.WorldCFrame
+	bodyVelocity.Velocity = (root.CFrame.RightVector * CLIMBING_SPEED * (r - l)) + (root.CFrame.UpVector * CLIMBING_SPEED * (f - b))
+end
+
+function checkSides(direction, rotation)
+	
+	local vector, position
+	
+	local innerPos = (root.CFrame.RightVector * 3 * direction + root.CFrame.LookVector) * rotation
+	local innerDir = (root.CFrame.RightVector * -7 * direction + root.CFrame.LookVector * 2) * rotation
+	
+	
+	local targetSide = workspace:Raycast(root.Position + innerPos, root.CFrame.RightVector * 4 * direction + innerDir, raycastParams)
+	
+	if targetSide and math.acos(((-targetSide.Normal):Dot(root.CFrame.LookVector))) > .05 then
+		turning = true
+		root.Anchored = true
+		bodyVelocity.MaxForce = Vector3.new()
+		constraint.Enabled = false
+
+		vector = -targetSide.Normal
+		position = targetSide.Position - vector * 1.2 
+		
+		local animation = TweenService:Create(root, ANIMATION_TIME, {["CFrame"] = CFrame.new(position, position + vector)})
+		animation:Play()
+		animation.Completed:Wait()
+
+		adjustConstraints()
+		
+		bodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
+		constraint.Enabled = true
+		root.Anchored = false
+		turning = false
+	end
+end
+
+function checkEdges()
+	if not turning then
+		local f = climbStates["climbForward"]
+		local b = climbStates["climbBackward"]
+		local r = climbStates["climbRight"]
+		local l = climbStates["climbLeft"]
+		
+		
+		local targetUp = workspace:Raycast(root.Position, root.CFrame.LookVector * 2 + root.CFrame.UpVector, raycastParams)
+		local targetOuter = workspace:Raycast(root.Position, root.CFrame.RightVector * 3 * (r - l), raycastParams)
+		local targetDown = workspace:Raycast(root.Position, root.CFrame.LookVector * 2 - root.CFrame.UpVector, raycastParams)
+		
+		if not targetUp and (b - f) == -1 then
+			stopClimbing()
+			
+			turning = true
+			root.Anchored = true
+			local newpos = root.Position+root.CFrame.UpVector * 2 + root.CFrame.LookVector * 2
+			
+			local animation = TweenService:Create(root, ANIMATION_TIME, {["CFrame"] = CFrame.new(newpos, newpos + root.CFrame.LookVector)})
+			animation:Play()
+			animation.Completed:Wait()
+			
+			root.Anchored = false
+			turning = false
+			return
+		end
+
+		
+		if targetOuter then
+			checkSides(r - l, 0)
+		elseif not targetOuter then
+			checkSides(r - l, 1)
+		end
+		
+		if not targetDown then
+			stopClimbing()
+		end
+	end
+end
+
+function moveClimb(actionName, inputState, inputObject)
+	local state = climbStates[actionName]
+	
+	if inputState == Enum.UserInputState.Begin and state == 0 then
+		climbStates[actionName] = 1
+	elseif inputState == Enum.UserInputState.End and state == 1 then
+		climbStates[actionName] = 0
+	end
+	
+	if not turning then
+		adjustConstraints()
+	end
+end
+
+function startClimb(vector, position, part)
+	character.Humanoid.AutoRotate = false
+	root.CFrame = CFrame.new(position, position + vector)
+	bodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
+	
+	local currentAttach = Instance.new("Attachment")
+	currentAttach.Parent = part
+	currentAttach.WorldCFrame = root.CFrame
+	constraint.Attachment0 = currentAttach
+	constraint.Enabled = true
+	
+	local climbingTrack = character.Humanoid:LoadAnimation(climbAnim)
+	climbingTrack.Priority = 1
+	climbingTrack:Play(.5, 1, 0)
+
+	currentClimbTrack = climbingTrack
+	
+	local wHeld = UserInputService:IsKeyDown(Enum.KeyCode.W)
+	if wHeld then
+		climbStates["climbForward"] = 1
+		adjustConstraints()
+	end
+	
+	ContextActionService:BindAction("climbForward", moveClimb, false, Enum.PlayerActions.CharacterForward)
+	ContextActionService:BindAction("climbBackward", moveClimb, false, Enum.PlayerActions.CharacterBackward)
+	ContextActionService:BindAction("climbRight", moveClimb, false, Enum.PlayerActions.CharacterRight)
+	ContextActionService:BindAction("climbLeft", moveClimb, false, Enum.PlayerActions.CharacterLeft)
+	RunService:BindToRenderStep("checkClimb", 50, checkEdges)
+	
+	character.Humanoid:SetStateEnabled(5, false)
+	character.Humanoid:SetStateEnabled(8, false)
+	character.Humanoid:ChangeState(12)
+
+	climbing = true
+	
+end
+
+function stopClimbing()
+	climbStates["climbForward"] = 0
+	climbStates["climbBackward"] = 0
+	climbStates["climbRight"] = 0
+	climbStates["climbLeft"] = 0
+	
+	character.Humanoid:SetStateEnabled(5, true)
+	character.Humanoid:SetStateEnabled(8, true)
+	
+	for _, track in ipairs(character.Humanoid.Animator:GetPlayingAnimationTracks()) do
+		if track.Animation == climbAnim then
+			track:Stop()
+			track:Destroy()
+		end
+	end
+	
+	constraint.Enabled = false
+	character.Humanoid.AutoRotate = true
+	constraint.Attachment0:Destroy()
+	rootAttachment.WorldCFrame = root.CFrame
+	bodyVelocity.MaxForce = Vector3.new()
+	bodyVelocity.Velocity = Vector3.new()
+	
+	ContextActionService:UnbindAction("climbForward")
+	ContextActionService:UnbindAction("climbBackward")
+	ContextActionService:UnbindAction("climbRight")
+	ContextActionService:UnbindAction("climbLeft")
+	RunService:UnbindFromRenderStep("checkClimb")
+	
+	climbing = false
+end
+
+function checkForWall()
+	local raycastResult = workspace:Raycast(root.Position, root.CFrame.LookVector * 2 + Vector3.new(0, .5, 0), raycastParams)
+	
+	if raycastResult then
+		local characterStraightness = (root.CFrame.UpVector.Unit - Vector3.new(0, 1, 0)).Magnitude
+		local vector = -raycastResult.Normal
+		local position = raycastResult.Position - vector * 1.2
+		if raycastResult.Instance.Anchored and position and characterStraightness < .05 and math.acos((vector:Dot(root.CFrame.LookVector))) < MAXIMUM_ANGLE_FROM_WALL then
+			startClimb(vector, position, raycastResult.Instance)
+		end
+	end
+end
+
+function jump(actionName, inputState, inputObject)
+	if inputState == Enum.UserInputState.Begin then
+		if firstJump and character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall and not climbing then
+			checkForWall()
+		elseif firstJump and climbing and not turning then
+			stopClimbing()
+			return Enum.ContextActionResult.Sink
+		elseif not firstJump then
+			firstJump = true
+		end
+	end
+end
+
+function stateChanged(_, state)
+	if state == 7 then
+		firstJump = false
+	end
+end
+
+function characterAdded(instance)
+	if instance:FindFirstChild("Humanoid") then
+		table.insert(filterTable, instance)
+		raycastParams.FilterDescendantsInstances = filterTable
+	end
+	
+end
+
+character.Humanoid.StateChanged:Connect(stateChanged)
+ContextActionService:BindAction("onJump", jump, false, Enum.PlayerActions.CharacterJump)
+workspace.ChildAdded:Connect(characterAdded)
+
+-- Roblox LUA Script for allowing a player to climb on terrain and parts. Place this under 'StarterCharacterScripts'.
